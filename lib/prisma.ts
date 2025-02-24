@@ -3,109 +3,78 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
 import { cache } from "react";
 
-// In-memory storage for when database is not configured
-let inMemoryStorage: {
-  chats: any[];
-  messages: any[];
-} = {
-  chats: [],
-  messages: [],
+// Mock data for when database is not configured
+const mockDb = {
+  chats: new Map(),
+  messages: new Map(),
+  generateId: () => `mock_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+};
+
+// Mock implementation of PrismaClient
+const mockPrismaClient = {
+  chat: {
+    findFirst: async ({ where, include }) => {
+      const chat = mockDb.chats.get(where.id);
+      if (!chat) return null;
+      
+      if (include?.messages) {
+        const messages = Array.from(mockDb.messages.values())
+          .filter(m => m.chatId === where.id)
+          .sort((a, b) => a.position - b.position);
+        return { ...chat, messages };
+      }
+      return chat;
+    },
+    create: async ({ data }) => {
+      const id = mockDb.generateId();
+      const chat = { ...data, id, createdAt: new Date() };
+      mockDb.chats.set(id, chat);
+      return chat;
+    }
+  },
+  message: {
+    findUnique: async ({ where }) => {
+      return mockDb.messages.get(where.id) || null;
+    },
+    findMany: async ({ where, orderBy }) => {
+      let messages = Array.from(mockDb.messages.values())
+        .filter(m => m.chatId === where.chatId);
+      
+      if (where?.position?.lte !== undefined) {
+        messages = messages.filter(m => m.position <= where.position.lte);
+      }
+      
+      return orderBy?.position === "asc" 
+        ? messages.sort((a, b) => a.position - b.position)
+        : messages;
+    },
+    create: async ({ data }) => {
+      const id = mockDb.generateId();
+      const message = { ...data, id, createdAt: new Date() };
+      mockDb.messages.set(id, message);
+      return message;
+    }
+  }
 };
 
 export const getPrisma = cache(() => {
-  // If DATABASE_URL is not set, use in-memory storage
   if (!process.env.DATABASE_URL) {
-    return {
-      chat: {
-        create: async (data: any) => {
-          const chat = { 
-            id: `mem_${Date.now()}`, 
-            ...data.data,
-            createdAt: new Date()
-          };
-          inMemoryStorage.chats.push(chat);
-          return chat;
-        },
-        update: async (data: any) => {
-          const chatIndex = inMemoryStorage.chats.findIndex((c) => c.id === data.where.id);
-          if (chatIndex === -1) throw new Error("Chat not found");
-          
-          // Handle messages creation if included in update
-          if (data.data.messages?.createMany) {
-            const messages = data.data.messages.createMany.data.map((msg: any) => ({
-              id: `mem_${Date.now()}_${Math.random()}`,
-              ...msg,
-              chatId: data.where.id,
-              createdAt: new Date()
-            }));
-            inMemoryStorage.messages.push(...messages);
-          }
-          
-          // Update chat
-          const updatedChat = {
-            ...inMemoryStorage.chats[chatIndex],
-            ...data.data,
-            messages: inMemoryStorage.messages.filter((m) => m.chatId === data.where.id)
-              .sort((a, b) => a.position - b.position)
-          };
-          inMemoryStorage.chats[chatIndex] = updatedChat;
-          return updatedChat;
-        },
-        findUnique: async (data: any) => {
-          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
-          if (!chat) return null;
-          if (data.include?.messages) {
-            return {
-              ...chat,
-              messages: inMemoryStorage.messages.filter((m) => m.chatId === data.where.id)
-                .sort((a, b) => a.position - b.position)
-            };
-          }
-          return chat;
-        },
-        findFirst: async (data: any) => {
-          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
-          if (!chat) return null;
-          if (data.include?.messages) {
-            const messages = inMemoryStorage.messages
-              .filter((m) => m.chatId === data.where.id)
-              .sort((a, b) => {
-                if (data.include.messages.orderBy?.position === "asc") {
-                  return a.position - b.position;
-                }
-                return b.position - a.position;
-              });
-            return {
-              ...chat,
-              messages
-            };
-          }
-          return chat;
-        }
-      },
-      message: {
-        create: async (data: any) => {
-          const message = { 
-            id: `mem_${Date.now()}_${Math.random()}`, 
-            ...data,
-            createdAt: new Date()
-          };
-          inMemoryStorage.messages.push(message);
-          return message;
-        }
-      }
-    };
+    console.warn(
+      "DATABASE_URL not set. Using in-memory mock database. Data will not persist between restarts."
+    );
+    return mockPrismaClient;
   }
 
-  // If DATABASE_URL is set, use real database connection
   try {
     const neon = new Pool({ connectionString: process.env.DATABASE_URL });
     const adapter = new PrismaNeon(neon);
-    return new PrismaClient({ adapter });
+    const client = new PrismaClient({ adapter });
+    return client;
   } catch (error) {
-    console.warn("Failed to connect to database, falling back to in-memory storage:", error);
-    // Reset storage and return in-memory client
-    inMemoryStorage = { chats: [], messages: [] };
-    return getPrisma();
+    console.warn(
+      "Failed to connect to database. Using in-memory mock database. Data will not persist between restarts.",
+      error
+    );
+    return mockPrismaClient;
   }
 });
