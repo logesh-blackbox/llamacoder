@@ -31,7 +31,11 @@ export const getPrisma = cache(() => {
           return chat;
         },
         create: async (data: any) => {
-          const chat = { id: `mem_${Date.now()}`, ...data.data };
+          const chat = { 
+            id: `mem_${Date.now()}`, 
+            ...data.data,
+            createdAt: new Date()
+          };
           inMemoryStorage.chats.push(chat);
           return chat;
         },
@@ -44,7 +48,8 @@ export const getPrisma = cache(() => {
             const messages = data.data.messages.createMany.data.map((msg: any) => ({
               id: `mem_${Date.now()}_${Math.random()}`,
               ...msg,
-              chatId: data.where.id
+              chatId: data.where.id,
+              createdAt: new Date()
             }));
             inMemoryStorage.messages.push(...messages);
           }
@@ -60,8 +65,32 @@ export const getPrisma = cache(() => {
         }
       },
       message: {
+        findUnique: async (data: any) => {
+          return inMemoryStorage.messages.find((m) => m.id === data.where.id) || null;
+        },
+        findMany: async (data: any) => {
+          let messages = inMemoryStorage.messages;
+          
+          if (data.where?.chatId) {
+            messages = messages.filter((m) => m.chatId === data.where.chatId);
+          }
+          
+          if (data.where?.position?.lte) {
+            messages = messages.filter((m) => m.position <= data.where.position.lte);
+          }
+          
+          if (data.orderBy?.position === "asc") {
+            messages.sort((a, b) => a.position - b.position);
+          }
+          
+          return messages;
+        },
         create: async (data: any) => {
-          const message = { id: `mem_${Date.now()}_${Math.random()}`, ...data };
+          const message = { 
+            id: `mem_${Date.now()}_${Math.random()}`, 
+            ...data,
+            createdAt: new Date()
+          };
           inMemoryStorage.messages.push(message);
           return message;
         }
