@@ -17,6 +17,19 @@ export const getPrisma = cache(() => {
   if (!process.env.DATABASE_URL) {
     return {
       chat: {
+        findFirst: async (data: any) => {
+          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
+          if (!chat) return null;
+          if (data.include?.messages) {
+            return {
+              ...chat,
+              messages: inMemoryStorage.messages
+                .filter((m) => m.chatId === data.where.id)
+                .sort((a, b) => a.position - b.position),
+            };
+          }
+          return chat;
+        },
         create: async (data: any) => {
           const chat = { id: `mem_${Date.now()}`, ...data.data };
           inMemoryStorage.chats.push(chat);
@@ -44,17 +57,6 @@ export const getPrisma = cache(() => {
           };
           inMemoryStorage.chats[chatIndex] = updatedChat;
           return updatedChat;
-        },
-        findUnique: async (data: any) => {
-          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
-          if (!chat) return null;
-          if (data.include?.messages) {
-            return {
-              ...chat,
-              messages: inMemoryStorage.messages.filter((m) => m.chatId === data.where.id)
-            };
-          }
-          return chat;
         }
       },
       message: {
@@ -67,7 +69,7 @@ export const getPrisma = cache(() => {
     };
   }
 
-  // If DATABASE_URL is set, use actual database
+  // If DATABASE_URL is set, use real database connection
   try {
     const neon = new Pool({ connectionString: process.env.DATABASE_URL });
     const adapter = new PrismaNeon(neon);
