@@ -17,19 +17,6 @@ export const getPrisma = cache(() => {
   if (!process.env.DATABASE_URL) {
     return {
       chat: {
-        findFirst: async (data: any) => {
-          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
-          if (!chat) return null;
-          if (data.include?.messages) {
-            return {
-              ...chat,
-              messages: inMemoryStorage.messages
-                .filter((m) => m.chatId === data.where.id)
-                .sort((a, b) => a.position - b.position),
-            };
-          }
-          return chat;
-        },
         create: async (data: any) => {
           const chat = { 
             id: `mem_${Date.now()}`, 
@@ -59,32 +46,44 @@ export const getPrisma = cache(() => {
             ...inMemoryStorage.chats[chatIndex],
             ...data.data,
             messages: inMemoryStorage.messages.filter((m) => m.chatId === data.where.id)
+              .sort((a, b) => a.position - b.position)
           };
           inMemoryStorage.chats[chatIndex] = updatedChat;
           return updatedChat;
+        },
+        findUnique: async (data: any) => {
+          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
+          if (!chat) return null;
+          if (data.include?.messages) {
+            return {
+              ...chat,
+              messages: inMemoryStorage.messages.filter((m) => m.chatId === data.where.id)
+                .sort((a, b) => a.position - b.position)
+            };
+          }
+          return chat;
+        },
+        findFirst: async (data: any) => {
+          const chat = inMemoryStorage.chats.find((c) => c.id === data.where.id);
+          if (!chat) return null;
+          if (data.include?.messages) {
+            const messages = inMemoryStorage.messages
+              .filter((m) => m.chatId === data.where.id)
+              .sort((a, b) => {
+                if (data.include.messages.orderBy?.position === "asc") {
+                  return a.position - b.position;
+                }
+                return b.position - a.position;
+              });
+            return {
+              ...chat,
+              messages
+            };
+          }
+          return chat;
         }
       },
       message: {
-        findUnique: async (data: any) => {
-          return inMemoryStorage.messages.find((m) => m.id === data.where.id) || null;
-        },
-        findMany: async (data: any) => {
-          let messages = inMemoryStorage.messages;
-          
-          if (data.where?.chatId) {
-            messages = messages.filter((m) => m.chatId === data.where.chatId);
-          }
-          
-          if (data.where?.position?.lte) {
-            messages = messages.filter((m) => m.position <= data.where.position.lte);
-          }
-          
-          if (data.orderBy?.position === "asc") {
-            messages.sort((a, b) => a.position - b.position);
-          }
-          
-          return messages;
-        },
         create: async (data: any) => {
           const message = { 
             id: `mem_${Date.now()}_${Math.random()}`, 
