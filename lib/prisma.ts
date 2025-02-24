@@ -53,18 +53,23 @@ const mockPrismaClient = {
       };
       mockDb.chats.set(params.where.id, updatedChat);
       
-      // Get messages for this chat
-      const messages = Array.from(mockDb.messages.values())
-        .filter(m => m.chatId === params.where.id)
-        .sort((a, b) => a.position - b.position);
+      // Only include messages if requested
+      if (params.include?.messages) {
+        const messages = Array.from(mockDb.messages.values())
+          .filter(m => m.chatId === params.where.id)
+          .sort((a, b) => a.position - b.position);
+        
+        const result = {
+          ...updatedChat,
+          messages: messages || []  // Ensure messages is always an array
+        };
+        delete result.messages?.createMany; // Remove createMany from response
+        return result;
+      }
       
-      // Always return with messages array
-      const result = {
-        ...updatedChat,
-        messages: messages || []  // Ensure messages is always an array
-      };
-      
-      delete result.messages?.createMany; // Remove createMany from response
+      // Return without messages if not requested
+      const result = { ...updatedChat };
+      delete result.messages?.createMany;
       return result;
     }
   },
