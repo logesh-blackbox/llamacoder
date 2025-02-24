@@ -6,7 +6,7 @@ import { cache } from "react";
 export const getPrisma = cache(() => {
   if (!process.env.DATABASE_URL) {
     throw new Error(
-      "DATABASE_URL environment variable is not set. Please create a .env file based on .env.example and set your database connection string."
+      "DATABASE_URL environment variable is not set. Please create a .env file based on .env.example and configure your database connection."
     );
   }
   const neon = new Pool({ connectionString: process.env.DATABASE_URL });
