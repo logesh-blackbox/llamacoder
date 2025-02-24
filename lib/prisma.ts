@@ -30,6 +30,26 @@ const mockPrismaClient = {
       const chat = { ...data, id, createdAt: new Date() };
       mockDb.chats.set(id, chat);
       return chat;
+    },
+    update: async ({ where, data }) => {
+      const chat = mockDb.chats.get(where.id);
+      if (!chat) throw new Error("Chat not found");
+
+      // Handle messages creation if included in update
+      if (data.messages?.createMany) {
+        const newMessages = data.messages.createMany.data.map(msg => ({
+          id: mockDb.generateId(),
+          ...msg,
+          chatId: where.id,
+          createdAt: new Date()
+        }));
+        newMessages.forEach(msg => mockDb.messages.set(msg.id, msg));
+      }
+
+      // Update chat
+      const updatedChat = { ...chat, ...data };
+      mockDb.chats.set(where.id, updatedChat);
+      return updatedChat;
     }
   },
   message: {
