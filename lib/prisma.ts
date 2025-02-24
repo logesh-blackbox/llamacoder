@@ -46,20 +46,23 @@ const mockPrismaClient = {
         newMessages.forEach(msg => mockDb.messages.set(msg.id, msg));
       }
 
-      // Update chat
-      const updatedChat = { ...chat, ...params.data };
+      // Update chat and ensure messages array exists
+      const updatedChat = { 
+        ...chat, 
+        ...params.data,
+        messages: [] // Initialize empty messages array
+      };
       mockDb.chats.set(params.where.id, updatedChat);
       
-      // If include is specified in params, return messages as well
-      if (params.include?.messages) {
-        return {
-          ...updatedChat,
-          messages: Array.from(mockDb.messages.values())
-            .filter(m => m.chatId === params.where.id)
-            .sort((a, b) => a.position - b.position)
-        };
-      }
-      return updatedChat;
+      // Always include messages in response
+      const messages = Array.from(mockDb.messages.values())
+        .filter(m => m.chatId === params.where.id)
+        .sort((a, b) => a.position - b.position);
+      
+      return {
+        ...updatedChat,
+        messages
+      };
     }
   },
   message: {
