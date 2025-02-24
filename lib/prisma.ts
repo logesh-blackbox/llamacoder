@@ -31,24 +31,34 @@ const mockPrismaClient = {
       mockDb.chats.set(id, chat);
       return chat;
     },
-    update: async ({ where, data }) => {
-      const chat = mockDb.chats.get(where.id);
+    update: async (params) => {
+      const chat = mockDb.chats.get(params.where.id);
       if (!chat) throw new Error("Chat not found");
 
       // Handle messages creation if included in update
-      if (data.messages?.createMany) {
-        const newMessages = data.messages.createMany.data.map(msg => ({
+      if (params.data.messages?.createMany) {
+        const newMessages = params.data.messages.createMany.data.map(msg => ({
           id: mockDb.generateId(),
           ...msg,
-          chatId: where.id,
+          chatId: params.where.id,
           createdAt: new Date()
         }));
         newMessages.forEach(msg => mockDb.messages.set(msg.id, msg));
       }
 
       // Update chat
-      const updatedChat = { ...chat, ...data };
-      mockDb.chats.set(where.id, updatedChat);
+      const updatedChat = { ...chat, ...params.data };
+      mockDb.chats.set(params.where.id, updatedChat);
+      
+      // If include is specified in params, return messages as well
+      if (params.include?.messages) {
+        return {
+          ...updatedChat,
+          messages: Array.from(mockDb.messages.values())
+            .filter(m => m.chatId === params.where.id)
+            .sort((a, b) => a.position - b.position)
+        };
+      }
       return updatedChat;
     }
   },
