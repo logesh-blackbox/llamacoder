@@ -22,23 +22,18 @@
 2. Set up your environment variables:
    - Copy `.env.example` to `.env`: `cp .env.example .env`
    - Add your [Together AI API key](https://togetherai.link/?utm_source=example-app&utm_medium=llamacoder&utm_campaign=llamacoder-app-signup): `TOGETHER_API_KEY=`
-   - Configure your database URL in `.env`. Example for local PostgreSQL:
+   - (Optional) Configure database URL in `.env` if you want to persist data:
      ```
      DATABASE_URL="postgresql://postgres:postgres@localhost:5432/llamacoder"
      ```
 
-3. Set up the database:
-   - Install PostgreSQL if not already installed
-   - Create a new database: `createdb llamacoder`
-   - Run database migrations: `npx prisma migrate dev`
-
-4. Install dependencies and start the app:
+3. Install dependencies and start the app:
    - Run `npm install` to install dependencies
    - Run `npm run dev` to start the development server
 
-## Database Setup
+## Database Setup (Optional)
 
-The application uses PostgreSQL as its database. Here's how to set it up:
+The application can run without a database using in-memory storage. However, if you want to persist data across restarts, you can set up PostgreSQL:
 
 1. Install PostgreSQL if you haven't already:
    - macOS: `brew install postgresql`
@@ -62,11 +57,13 @@ The application uses PostgreSQL as its database. Here's how to set it up:
 
 ## Troubleshooting
 
-- **Database Connection Issues**:
-  - Ensure PostgreSQL is running
-  - Verify your database credentials in `.env`
-  - Check if the database exists: `psql -l`
-  - Make sure you can connect: `psql -d llamacoder`
+- **Database Connection Issues** (Only if using PostgreSQL):
+  - The app will use in-memory storage if database connection fails
+  - To use PostgreSQL:
+    - Ensure PostgreSQL is running
+    - Verify your database credentials in `.env`
+    - Check if the database exists: `psql -l`
+    - Make sure you can connect: `psql -d llamacoder`
 
 ## Contributing
 
