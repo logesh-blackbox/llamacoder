@@ -4,6 +4,11 @@ import { Pool } from "@neondatabase/serverless";
 import { cache } from "react";
 
 export const getPrisma = cache(() => {
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      "DATABASE_URL environment variable is not set. Please create a .env file based on .env.example and set your database connection string."
+    );
+  }
   const neon = new Pool({ connectionString: process.env.DATABASE_URL });
   const adapter = new PrismaNeon(neon);
   return new PrismaClient({ adapter });
